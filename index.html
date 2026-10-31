@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Family Estate & Wealth Vault</title>
+  <!-- Chart.js & SheetJS for Excel (.xlsx) parsing -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
@@ -35,6 +36,7 @@
     button.btn-primary { background: #0284c7; border-color: #0284c7; color: #fff; }
     button.btn-primary:hover { background: #0369a1; }
     button.btn-success { background: #16a34a; border-color: #16a34a; color: #fff; }
+    button.btn-amber { background: #d97706; border-color: #d97706; color: #fff; }
     button.btn-danger { background: rgba(239, 68, 68, 0.2); border-color: rgba(239, 68, 68, 0.4); color: var(--accent-red); padding: 0.35rem 0.6rem; border-radius: 0.35rem; }
     button.btn-danger:hover { background: rgba(239, 68, 68, 0.4); }
 
@@ -74,7 +76,6 @@
     .pin-input { font-size: 1.5rem; letter-spacing: 0.5rem; text-align: center; padding: 0.75rem; width: 100%; border-radius: 0.5rem; background: #0f172a; border: 1px solid var(--border-color); color: #fff; }
     .hidden { display: none !important; }
 
-    /* Auto-lock warning */
     .security-badge { font-size: 0.75rem; background: rgba(52, 211, 153, 0.1); border: 1px solid rgba(52, 211, 153, 0.3); color: var(--accent-green); padding: 0.2rem 0.5rem; border-radius: 4px; display: inline-flex; align-items: center; gap: 0.3rem; }
 
     @media print {
@@ -102,6 +103,14 @@
       </p>
       <input type="password" id="pinInput" class="pin-input" maxlength="8" placeholder="••••" autofocus />
       <button id="btnPinSubmit" class="btn-primary" style="justify-content: center; padding: 0.75rem; width: 100%; margin-top: 1rem;">Unlock Vault</button>
+      
+      <!-- Emergency Restore link inside lock modal -->
+      <div style="margin-top: 1.25rem; border-top: 1px solid var(--border-color); padding-top: 0.85rem;">
+        <span style="font-size: 0.75rem; color: var(--text-muted);">Moving devices or cleared browser cache?</span>
+        <button id="btnRestoreFromLock" type="button" style="background: none; border: none; color: var(--accent-blue); font-size: 0.8rem; cursor: pointer; text-decoration: underline; margin-top: 0.35rem;">
+          <i class="fa-solid fa-file-shield"></i> Restore from .vault Backup File
+        </button>
+      </div>
     </div>
   </div>
 
@@ -189,12 +198,18 @@
     </div>
 
     <div class="header-actions">
+      <!-- Hidden file inputs -->
       <input type="file" id="spreadsheetFileInput" accept=".csv, .xlsx, .xls" class="hidden" />
-      <button id="btnImportSpreadsheet" title="Import Excel or CSV"><i class="fa-solid fa-file-excel" style="color: #4ade80;"></i> Import Excel</button>
+      <input type="file" id="restoreVaultInput" accept=".vault, .enc, .json" class="hidden" />
+
+      <button id="btnImportSpreadsheet" title="Import Excel or CSV"><i class="fa-solid fa-file-excel" style="color: #4ade80;"></i> Import</button>
       <button id="btnDownloadTemplate" title="Download Excel template"><i class="fa-solid fa-file-arrow-down"></i> Template</button>
       <button id="btnOpenAddModal" class="btn-primary"><i class="fa-solid fa-plus"></i> Add Account</button>
-      <button id="btnPrintDossier" class="btn-success" title="Print confidential family dossier"><i class="fa-solid fa-print"></i> Print Dossier</button>
-      <button id="btnBackup" title="Export Encrypted Backup"><i class="fa-solid fa-shield"></i> Backup (.enc)</button>
+      <button id="btnPrintDossier" class="btn-success" title="Print confidential family dossier"><i class="fa-solid fa-print"></i> Print</button>
+      
+      <!-- Native Encrypted Backup Buttons -->
+      <button id="btnExportVault" class="btn-amber" title="Export encrypted backup that only this app can read"><i class="fa-solid fa-file-shield"></i> Export Backup</button>
+      <button id="btnTriggerRestore" title="Restore encrypted backup file"><i class="fa-solid fa-clock-rotate-left"></i> Restore</button>
       <button id="btnLock" title="Lock Vault"><i class="fa-solid fa-lock"></i> Lock</button>
     </div>
   </header>
@@ -283,14 +298,22 @@
           <strong>4. Insurance Policies</strong>
           <p style="margin-top: 0.25rem; color: var(--text-muted);">Notify insurers promptly. Documents required: Original Policy Document, Death Certificate, and Nominee Cancelled Cheque.</p>
         </div>
+
+        <div style="background: rgba(56, 189, 248, 0.08); border: 1px dashed var(--accent-blue); padding: 0.85rem; border-radius: 0.35rem; font-size: 0.8rem;">
+          <b style="color: var(--accent-blue);"><i class="fa-solid fa-shield-halved"></i> Vault Backup Advice:</b>
+          <p style="margin-top: 0.35rem; color: var(--text-muted);">
+            Click <b>"Export Backup"</b> and store the <code>.vault</code> file on your shared Family Drive or email it to your spouse. Since it is encrypted with your PIN, it is safe from any unauthorized reading.
+          </p>
+        </div>
       </div>
     </div>
   </div>
 
   <script>
     /* ==========================================================================
-       ULTRA-SECURE AES-256-GCM + PBKDF2 (250,000 ITERATIONS)
+       AUTHENTICATED VAULT FORMAT & CLIENT-SIDE AES-256-GCM
        ========================================================================== */
+    const VAULT_HEADER = "FAMILY_ESTATE_VAULT_V1";
     let sessionKey = null;
     let estateData = [];
     let autoLockTimer = null;
@@ -298,23 +321,17 @@
     const encoder = new TextEncoder();
     const decoder = new TextDecoder();
 
-    // Reset auto-lock timer on any interaction
     function resetAutoLock() {
       clearTimeout(autoLockTimer);
       if (sessionKey) {
-        autoLockTimer = setTimeout(() => {
-          lockVault();
-        }, 5 * 60 * 1000); // 5 minutes inactivity lock
+        autoLockTimer = setTimeout(() => lockVault(), 5 * 60 * 1000);
       }
     }
     window.addEventListener("mousemove", resetAutoLock);
     window.addEventListener("keydown", resetAutoLock);
 
-    // Auto-lock when tab is hidden or minimized
     document.addEventListener("visibilitychange", () => {
-      if (document.hidden && sessionKey) {
-        lockVault();
-      }
+      if (document.hidden && sessionKey) lockVault();
     });
 
     async function deriveKey(pin, salt) {
@@ -337,29 +354,29 @@
         const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv: iv }, sessionKey, encoder.encode(jsonStr));
         
         const payload = {
+          header: VAULT_HEADER,
           iv: Array.from(iv),
           data: Array.from(new Uint8Array(encrypted)),
           updatedAt: new Date().toISOString()
         };
 
-        // Encrypted ciphertext is safely committed to HTTPS localStorage
         localStorage.setItem("pf_estate_vault", JSON.stringify(payload));
-        showSaveToast();
+        showToast("Encrypted & Saved");
       } catch (err) {
         console.error("Encryption failed:", err);
         alert("Failed to save encrypted records: " + err.message);
       }
     }
 
-    function showSaveToast() {
+    function showToast(msg) {
       let toast = document.getElementById("saveToast");
       if (!toast) {
         toast = document.createElement("div");
         toast.id = "saveToast";
         toast.style = "position:fixed;bottom:20px;right:20px;background:#15803d;color:#fff;padding:10px 18px;border-radius:8px;font-size:0.85rem;font-weight:600;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,0.5);display:flex;align-items:center;gap:8px;";
-        toast.innerHTML = `<i class="fa-solid fa-shield-check"></i> Encrypted & Saved`;
         document.body.appendChild(toast);
       }
+      toast.innerHTML = `<i class="fa-solid fa-shield-check"></i> ${msg}`;
       toast.style.display = "flex";
       setTimeout(() => { toast.style.display = "none"; }, 2500);
     }
@@ -400,14 +417,97 @@
 
     function lockVault() {
       sessionKey = null;
-      estateData = []; // Wipe decrypted data from memory
+      estateData = [];
       document.getElementById("pinInput").value = "";
       document.getElementById("pinOverlay").classList.remove("hidden");
       renderApp();
     }
 
     /* ==========================================================================
-       CRUD & ASSET MGMT
+       PROPRIETARY ENCRYPTED BACKUP (.VAULT) ENGINE
+       ========================================================================== */
+    // Export a single bundle containing salt + iv + ciphertext that only this app can parse
+    document.getElementById("btnExportVault").addEventListener("click", () => {
+      const savedVault = localStorage.getItem("pf_estate_vault");
+      const savedSalt = localStorage.getItem("pf_estate_salt");
+
+      if (!savedVault || estateData.length === 0) {
+        return alert("Vault is empty. Add records before creating an export.");
+      }
+
+      const parsed = JSON.parse(savedVault);
+      const backupPackage = {
+        magic: VAULT_HEADER,
+        salt: JSON.parse(savedSalt),
+        iv: parsed.iv,
+        ciphertext: parsed.data,
+        exportTimestamp: new Date().toISOString(),
+        itemCount: estateData.length
+      };
+
+      const blob = new Blob([JSON.stringify(backupPackage)], { type: "application/octet-stream" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `family_estate_backup_${new Date().toISOString().slice(0, 10)}.vault`;
+      a.click();
+      showToast("Encrypted Backup Downloaded");
+    });
+
+    document.getElementById("btnTriggerRestore").addEventListener("click", () => {
+      document.getElementById("restoreVaultInput").click();
+    });
+
+    document.getElementById("btnRestoreFromLock").addEventListener("click", () => {
+      document.getElementById("restoreVaultInput").click();
+    });
+
+    document.getElementById("restoreVaultInput").addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = async (evt) => {
+        try {
+          const pkg = JSON.parse(evt.target.result);
+          if (pkg.magic !== VAULT_HEADER || !pkg.ciphertext || !pkg.salt) {
+            return alert("Invalid file format. This file was not generated by this Family Vault.");
+          }
+
+          const pin = prompt("Enter the Master PIN that was used to encrypt this backup file:");
+          if (!pin) return;
+
+          const saltArray = new Uint8Array(pkg.salt);
+          const key = await deriveKey(pin, saltArray);
+
+          const iv = new Uint8Array(pkg.iv);
+          const ciphertext = new Uint8Array(pkg.ciphertext);
+          const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv: iv }, key, ciphertext);
+          const restoredData = JSON.parse(decoder.decode(decrypted));
+
+          if (!Array.isArray(restoredData)) {
+            throw new Error("Corrupted payload structure.");
+          }
+
+          // Restore state permanently into this browser
+          localStorage.setItem("pf_estate_salt", JSON.stringify(pkg.salt));
+          sessionKey = key;
+          estateData = restoredData;
+          await saveVault();
+
+          document.getElementById("pinOverlay").classList.add("hidden");
+          renderApp();
+          alert(`Successfully unlocked and restored ${estateData.length} records from backup!`);
+        } catch (err) {
+          alert("Restore failed: Incorrect PIN or damaged file.");
+        }
+      };
+
+      reader.readAsText(file);
+      e.target.value = "";
+    });
+
+    /* ==========================================================================
+       CRUD & SPREADSHEET LOGIC
        ========================================================================== */
     document.getElementById("btnSaveAsset").addEventListener("click", async () => {
       const name = document.getElementById("fName").value.trim();
@@ -451,9 +551,6 @@
       document.getElementById("fInstructions").value = "";
     }
 
-    /* ==========================================================================
-       SPREADSHEET IMPORTER
-       ========================================================================== */
     function handleSpreadsheetImport(e) {
       const file = e.target.files[0];
       if (!file) return;
@@ -594,7 +691,7 @@
       document.getElementById("kpiMarketWealth").innerText = `₹${marketWealth.toLocaleString('en-IN')}`;
 
       if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 2.5rem;">No records found. Click <b>"Add Account"</b> or <b>"Import Excel"</b> to add your holdings.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 2.5rem;">No records found. Click <b>"Add Account"</b> or <b>"Import"</b> to add your holdings.</td></tr>`;
         return;
       }
 
@@ -657,16 +754,6 @@
 
     document.getElementById("btnPrintDossier").addEventListener("click", () => window.print());
     document.getElementById("btnLock").addEventListener("click", lockVault);
-
-    document.getElementById("btnBackup").addEventListener("click", () => {
-      const raw = localStorage.getItem("pf_estate_vault");
-      if (!raw) return alert("Vault is empty.");
-      const blob = new Blob([raw], { type: "application/json" });
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = `estate_vault_backup_${new Date().toISOString().slice(0,10)}.enc`;
-      a.click();
-    });
 
     window.addEventListener("DOMContentLoaded", () => {
       if (!localStorage.getItem("pf_estate_salt")) {
