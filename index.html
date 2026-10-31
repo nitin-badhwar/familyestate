@@ -50,4 +50,862 @@
     .kpi-value { font-size: 1.5rem; font-weight: 700; color: #fff; }
 
     .filter-pills { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
-    .pill { background: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-muted); padding: 0.4rem 0.85rem; border-radius: 9999px; font-size: 0.8rem
+    .pill { background: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-muted); padding: 0.4rem 0.85rem; border-radius: 9999px; font-size: 0.8rem; cursor: pointer; }
+    .pill.active { background: #0284c7; color: #fff; border-color: #0284c7; font-weight: 600; }
+
+    .main-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; }
+    @media (max-width: 1024px) { .main-grid { grid-template-columns: 1fr; } }
+
+    .table-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 0.75rem; overflow: hidden; }
+    .table-responsive { overflow-x: auto; max-height: 600px; }
+    table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.875rem; }
+    th { background: #0f172a; padding: 0.85rem 1rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.05em; position: sticky; top: 0; z-index: 10; border-bottom: 1px solid var(--border-color); }
+    td { padding: 0.85rem 1rem; border-bottom: 1px solid #1e293b; color: var(--text-main); }
+    tr:hover td { background: #24344d; }
+
+    .badge { padding: 0.2rem 0.5rem; border-radius: 0.35rem; font-size: 0.75rem; font-weight: 500; display: inline-block; }
+    .badge-bank { background: rgba(52, 211, 153, 0.15); color: var(--accent-green); }
+    .badge-mf { background: rgba(56, 189, 248, 0.15); color: var(--accent-blue); }
+    .badge-epf { background: rgba(251, 191, 36, 0.15); color: var(--accent-amber); }
+    .badge-stock { background: rgba(192, 132, 252, 0.15); color: var(--accent-purple); }
+    .badge-ins { background: rgba(248, 113, 113, 0.15); color: var(--accent-red); }
+
+    .guide-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 0.75rem; padding: 1.25rem; display: flex; flex-direction: column; gap: 0.85rem; }
+    .guide-box { background: #0f172a; border-left: 4px solid var(--accent-blue); padding: 0.85rem; border-radius: 0.35rem; font-size: 0.85rem; }
+
+    .overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+    .modal-box { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 1rem; padding: 1.75rem; max-width: 520px; width: 90%; max-height: 90vh; overflow-y: auto; }
+    .pin-input { font-size: 1.5rem; letter-spacing: 0.5rem; text-align: center; padding: 0.75rem; width: 100%; border-radius: 0.5rem; background: #0f172a; border: 1px solid var(--border-color); color: #fff; }
+    .hidden { display: none !important; }
+
+    .security-badge { font-size: 0.75rem; background: rgba(52, 211, 153, 0.1); border: 1px solid rgba(52, 211, 153, 0.3); color: var(--accent-green); padding: 0.2rem 0.5rem; border-radius: 4px; display: inline-flex; align-items: center; gap: 0.3rem; }
+
+    @media print {
+      body { background: #fff !important; color: #000 !important; }
+      header, .header-actions, .filter-pills, .btn-danger, .btn-action, button, #pinOverlay, #assetModal, #restoreModal { display: none !important; }
+      .container { max-width: 100% !important; padding: 0 !important; }
+      .kpi-grid, .guide-card { display: none !important; }
+      .table-card { border: none !important; }
+      table { border: 1px solid #000; font-size: 0.8rem; }
+      th, td { border: 1px solid #ccc !important; color: #000 !important; background: transparent !important; }
+      .dossier-header { display: block !important; margin-bottom: 1.5rem; }
+    }
+    .dossier-header { display: none; }
+  </style>
+</head>
+<body>
+
+  <!-- MASTER PIN SHIELD -->
+  <div id="pinOverlay" class="overlay">
+    <div class="modal-box" style="text-align: center;">
+      <i class="fa-solid fa-shield-halved fa-3x" style="color: var(--accent-blue); margin-bottom: 0.75rem;"></i>
+      <h2 id="pinTitle">Encrypted Family Vault</h2>
+      <p id="pinMsg" style="font-size: 0.875rem; color: var(--text-muted); margin: 0.5rem 0 1rem;">
+        Protected by client-side AES-256-GCM. Decryption keys never leave this device.
+      </p>
+      <input type="password" id="pinInput" class="pin-input" maxlength="8" placeholder="••••" autofocus />
+      <button id="btnPinSubmit" class="btn-primary" style="justify-content: center; padding: 0.75rem; width: 100%; margin-top: 1rem;">Unlock Vault</button>
+      
+      <div style="margin-top: 1.25rem; border-top: 1px solid var(--border-color); padding-top: 0.85rem;">
+        <span style="font-size: 0.75rem; color: var(--text-muted);">Moving devices or setting up your phone?</span>
+        <div>
+          <button id="btnOpenRestoreModal" type="button" style="background: none; border: none; color: var(--accent-blue); font-size: 0.85rem; cursor: pointer; text-decoration: underline; margin-top: 0.4rem;">
+            <i class="fa-solid fa-cloud-arrow-down"></i> Restore / Import Backup
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RESTORE MODAL -->
+  <div id="restoreModal" class="overlay hidden">
+    <div class="modal-box">
+      <h3 style="font-size: 1.15rem; display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+        <span><i class="fa-solid fa-clock-rotate-left" style="color: var(--accent-blue);"></i> Restore Vault Backup</span>
+        <i class="fa-solid fa-xmark" style="cursor: pointer;" onclick="document.getElementById('restoreModal').classList.add('hidden')"></i>
+      </h3>
+      <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem;">
+        Choose your downloaded <code>.vault</code> file, or paste the backup code directly:
+      </p>
+
+      <div style="display: flex; flex-direction: column; gap: 1rem;">
+        <div style="background: #0f172a; padding: 1rem; border-radius: 0.5rem; border: 1px dashed var(--border-color);">
+          <div style="font-size: 0.85rem; font-weight: 600; margin-bottom: 0.5rem;">Option 1: Choose File</div>
+          <input type="file" id="restoreFileInput" accept="*/*" style="width: 100%; font-size: 0.8rem;" />
+        </div>
+
+        <div style="text-align: center; font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">— OR —</div>
+
+        <div style="background: #0f172a; padding: 1rem; border-radius: 0.5rem; border: 1px dashed var(--border-color);">
+          <div style="font-size: 0.85rem; font-weight: 600; margin-bottom: 0.5rem;">Option 2: Paste Backup Code / Text</div>
+          <textarea id="restoreTextInput" rows="3" placeholder="Paste the content of your .vault file here..." style="width: 100%; font-size: 0.75rem; font-family: monospace; resize: vertical;"></textarea>
+        </div>
+
+        <div>
+          <label style="font-size: 0.8rem; color: var(--text-muted);">Enter Master PIN of the backup:</label>
+          <input type="password" id="restorePinInput" placeholder="Master PIN" style="width: 100%; margin-top: 0.25rem;" />
+        </div>
+
+        <button id="btnExecuteRestore" class="btn-primary" style="justify-content: center; padding: 0.75rem;">
+          <i class="fa-solid fa-unlock-keyhole"></i> Decrypt & Restore
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADD / EDIT ASSET MODAL -->
+  <div id="assetModal" class="overlay hidden">
+    <div class="modal-box">
+      <h3 style="font-size: 1.15rem; display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <span id="modalHeaderTitle"><i class="fa-solid fa-file-shield" style="color: var(--accent-blue);"></i> Add Asset / Account</span>
+        <i class="fa-solid fa-xmark" style="cursor: pointer;" onclick="document.getElementById('assetModal').classList.add('hidden')"></i>
+      </h3>
+      <input type="hidden" id="editAssetId" value="" />
+      <div style="display: flex; flex-direction: column; gap: 0.85rem; font-size: 0.85rem;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+          <label>Category:
+            <select id="fCategory" style="width: 100%; margin-top: 0.25rem;">
+              <option value="Bank / FD">Bank Savings / FD</option>
+              <option value="Mutual Fund">Mutual Fund</option>
+              <option value="Direct Stock">Direct Stock / Demat</option>
+              <option value="EPF / PPF">EPF / PPF / NPS</option>
+              <option value="Insurance">Life / Health Insurance</option>
+              <option value="Other">Other / Locker / Real Estate</option>
+            </select>
+          </label>
+          <label>Owner / Family Member:
+            <select id="fMember" style="width: 100%; margin-top: 0.25rem;">
+              <option value="Self">Self</option>
+              <option value="Spouse">Spouse</option>
+              <option value="Child">Child</option>
+              <option value="Parents">Parents</option>
+            </select>
+          </label>
+        </div>
+
+        <label>Institution / Scheme Name:
+          <input type="text" id="fName" placeholder="e.g. HDFC Bank Salary / EPFO / Parag Parikh" style="width: 100%; margin-top: 0.25rem;" />
+        </label>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+          <label>Account / Folio / UAN / Policy #:
+            <input type="text" id="fIdentifier" placeholder="e.g. 501002938475" style="width: 100%; margin-top: 0.25rem;" />
+          </label>
+          <label>Current Value / Balance (₹):
+            <input type="number" step="100" id="fValue" placeholder="e.g. 250000" style="width: 100%; margin-top: 0.25rem; font-weight: 600; color: var(--accent-green);" />
+          </label>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+          <label>Nominee & Share:
+            <input type="text" id="fNominee" placeholder="e.g. Spouse (100%)" style="width: 100%; margin-top: 0.25rem;" />
+          </label>
+          <label>Branch / Linked Account:
+            <input type="text" id="fLinkedBank" placeholder="e.g. Main Branch" style="width: 100%; margin-top: 0.25rem;" />
+          </label>
+        </div>
+
+        <label>Physical Document Location:
+          <input type="text" id="fLocation" placeholder="e.g. Passbook in Red File, Drawer 2" style="width: 100%; margin-top: 0.25rem;" />
+        </label>
+
+        <label>Claim Instructions for Family:
+          <textarea id="fInstructions" rows="2" placeholder="e.g. Joint holder has immediate access; or submit death certificate." style="width: 100%; margin-top: 0.25rem; resize: vertical;"></textarea>
+        </label>
+      </div>
+      <button id="btnSaveAsset" class="btn-primary" style="justify-content: center; padding: 0.65rem; width: 100%; margin-top: 1rem;">
+        <i class="fa-solid fa-floppy-disk"></i> Save to Vault
+      </button>
+    </div>
+  </div>
+
+  <!-- HEADER -->
+  <header>
+    <div class="brand">
+      <i class="fa-solid fa-hands-holding-shield"></i>
+      <span>Estate & Wealth Vault</span>
+      <span class="security-badge"><i class="fa-solid fa-lock"></i> AES-256</span>
+    </div>
+
+    <!-- Family Filter -->
+    <div style="display: flex; align-items: center; gap: 0.5rem;">
+      <i class="fa-solid fa-users" style="color: var(--text-muted); font-size: 0.875rem;"></i>
+      <select id="familyFilter">
+        <option value="ALL">All Family (Consolidated)</option>
+        <option value="Self" selected>Self</option>
+        <option value="Spouse">Spouse</option>
+        <option value="Child">Child</option>
+        <option value="Parents">Parents</option>
+      </select>
+    </div>
+
+    <div class="header-actions">
+      <input type="file" id="spreadsheetFileInput" accept=".csv, .xlsx, .xls" class="hidden" />
+
+      <button id="btnImportSpreadsheet" title="Import Excel or CSV (Updates existing balances)"><i class="fa-solid fa-file-excel" style="color: #4ade80;"></i> Import</button>
+      <button id="btnDownloadTemplate" title="Download Excel template"><i class="fa-solid fa-file-arrow-down"></i> Template</button>
+      <button id="btnOpenAddModal" class="btn-primary"><i class="fa-solid fa-plus"></i> Add Account</button>
+      <button id="btnPrintDossier" class="btn-success" title="Print confidential family dossier"><i class="fa-solid fa-print"></i> Print</button>
+      <button id="btnExportVault" class="btn-amber" title="Export encrypted backup"><i class="fa-solid fa-file-shield"></i> Export Backup</button>
+      <button id="btnHeaderRestore" title="Restore encrypted backup file"><i class="fa-solid fa-clock-rotate-left"></i> Restore</button>
+      <button id="btnLock" title="Lock Vault"><i class="fa-solid fa-lock"></i> Lock</button>
+    </div>
+  </header>
+
+  <div class="dossier-header" style="padding: 1rem;">
+    <h2>CONFIDENTIAL: FAMILY ASSET & ESTATE SUMMARY</h2>
+    <p style="font-size: 0.85rem; color: #555;">This document lists all financial holdings, account numbers, and nominees for estate settlement.</p>
+  </div>
+
+  <div class="container">
+    <!-- KPI SUMMARY -->
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-title">Total Estimated Wealth <i class="fa-solid fa-vault"></i></div>
+        <div class="kpi-value" id="kpiTotalWealth">₹0</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-title">Bank & Liquid Cash <i class="fa-solid fa-building-columns"></i></div>
+        <div class="kpi-value" id="kpiBankWealth">₹0</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-title">PF & Government Schemes <i class="fa-solid fa-shield-cat"></i></div>
+        <div class="kpi-value" id="kpiPfWealth">₹0</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-title">Market (Stocks & MFs) <i class="fa-solid fa-chart-pie"></i></div>
+        <div class="kpi-value" id="kpiMarketWealth">₹0</div>
+      </div>
+    </div>
+
+    <!-- MAIN TWO-COLUMN VIEW -->
+    <div class="main-grid">
+      <div>
+        <div class="filter-pills">
+          <span class="pill active" data-cat="ALL">All Categories</span>
+          <span class="pill" data-cat="Bank / FD">Banks & FDs</span>
+          <span class="pill" data-cat="Mutual Fund">Mutual Funds</span>
+          <span class="pill" data-cat="Direct Stock">Demat / Stocks</span>
+          <span class="pill" data-cat="EPF / PPF">EPF / PPF / NPS</span>
+          <span class="pill" data-cat="Insurance">Insurance</span>
+        </div>
+
+        <div class="table-card">
+          <div class="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th>Category</th>
+                  <th>Owner</th>
+                  <th>Institution / Scheme</th>
+                  <th>Account / Folio #</th>
+                  <th>Value (₹)</th>
+                  <th>Nominee</th>
+                  <th>Location & Instructions</th>
+                  <th style="text-align: center; min-width: 90px;">Action</th>
+                </tr>
+              </thead>
+              <tbody id="assetsTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- SURVIVOR GUIDE -->
+      <div class="guide-card">
+        <h3 style="font-size: 1.05rem; display: flex; align-items: center; gap: 0.5rem; color: var(--accent-amber);">
+          <i class="fa-solid fa-circle-info"></i> How Balances are Maintained
+        </h3>
+        
+        <div class="guide-box">
+          <strong>1. Snapshot Philosophy</strong>
+          <p style="margin-top: 0.25rem; color: var(--text-muted);">
+            In an estate vault, day-to-day fluctuations matter less than knowing <i>where</i> the money is and the <i>order of magnitude</i>. Updating every 1–3 months (or when major deposits happen) is plenty.
+          </p>
+        </div>
+
+        <div class="guide-box">
+          <strong>2. Quick Balance Updates</strong>
+          <p style="margin-top: 0.25rem; color: var(--text-muted);">
+            Click the <i class="fa-solid fa-pen-to-square" style="color: var(--accent-blue);"></i> icon on any row to immediately adjust the balance and save.
+          </p>
+        </div>
+
+        <div class="guide-box">
+          <strong>3. Bulk Updating via Excel</strong>
+          <p style="margin-top: 0.25rem; color: var(--text-muted);">
+            Keep a master <code>.xlsx</code> file. When you re-import it, existing account numbers automatically update their balance rather than duplicating.
+          </p>
+        </div>
+
+        <div class="guide-box">
+          <strong>4. Term & Life Insurance</strong>
+          <p style="margin-top: 0.25rem; color: var(--text-muted);">
+            Keep the "Value" as the full Sum Assured (Coverage Amount) so your family knows the expected payout.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* ==========================================================================
+       AUTHENTICATED VAULT FORMAT & CLIENT-SIDE AES-256-GCM
+       ========================================================================== */
+    const VAULT_HEADER = "FAMILY_ESTATE_VAULT_V1";
+    let sessionKey = null;
+    let estateData = [];
+    let autoLockTimer = null;
+    let pendingAssetToSave = null;
+
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+
+    function resetAutoLock() {
+      clearTimeout(autoLockTimer);
+      if (sessionKey) {
+        autoLockTimer = setTimeout(() => lockVault(), 15 * 60 * 1000);
+      }
+    }
+    window.addEventListener("mousemove", resetAutoLock);
+    window.addEventListener("keydown", resetAutoLock);
+    window.addEventListener("touchstart", resetAutoLock);
+
+    async function deriveKey(pin, salt) {
+      const pinBuffer = encoder.encode(pin);
+      const baseKey = await crypto.subtle.importKey("raw", pinBuffer, "PBKDF2", false, ["deriveKey"]);
+      return crypto.subtle.deriveKey(
+        { name: "PBKDF2", salt: salt, iterations: 250000, hash: "SHA-256" },
+        baseKey,
+        { name: "AES-GCM", length: 256 },
+        false,
+        ["encrypt", "decrypt"]
+      );
+    }
+
+    async function saveVault() {
+      if (!sessionKey) return false;
+      try {
+        const jsonStr = JSON.stringify(estateData);
+        const iv = crypto.getRandomValues(new Uint8Array(12));
+        const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv: iv }, sessionKey, encoder.encode(jsonStr));
+        
+        const payload = {
+          header: VAULT_HEADER,
+          iv: Array.from(iv),
+          data: Array.from(new Uint8Array(encrypted)),
+          updatedAt: new Date().toISOString()
+        };
+
+        localStorage.setItem("pf_estate_vault", JSON.stringify(payload));
+        showToast("Encrypted & Saved");
+        return true;
+      } catch (err) {
+        console.error("Encryption failed:", err);
+        alert("Failed to save encrypted records: " + err.message);
+        return false;
+      }
+    }
+
+    function showToast(msg) {
+      let toast = document.getElementById("saveToast");
+      if (!toast) {
+        toast = document.createElement("div");
+        toast.id = "saveToast";
+        toast.style = "position:fixed;bottom:20px;right:20px;background:#15803d;color:#fff;padding:10px 18px;border-radius:8px;font-size:0.85rem;font-weight:600;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,0.5);display:flex;align-items:center;gap:8px;";
+        document.body.appendChild(toast);
+      }
+      toast.innerHTML = `<i class="fa-solid fa-shield-check"></i> ${msg}`;
+      toast.style.display = "flex";
+      setTimeout(() => { toast.style.display = "none"; }, 2500);
+    }
+
+    async function unlockVault(pin) {
+      let salt = localStorage.getItem("pf_estate_salt");
+      let isFirstTime = false;
+
+      if (!salt) {
+        const saltBytes = crypto.getRandomValues(new Uint8Array(16));
+        salt = JSON.stringify(Array.from(saltBytes));
+        localStorage.setItem("pf_estate_salt", salt);
+        isFirstTime = true;
+      }
+
+      const saltArray = new Uint8Array(JSON.parse(salt));
+      sessionKey = await deriveKey(pin, saltArray);
+
+      const saved = localStorage.getItem("pf_estate_vault");
+      if (saved && !isFirstTime) {
+        try {
+          const parsed = JSON.parse(saved);
+          const iv = new Uint8Array(parsed.iv);
+          const ciphertext = new Uint8Array(parsed.data);
+          const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv: iv }, sessionKey, ciphertext);
+          estateData = JSON.parse(decoder.decode(decrypted));
+        } catch (e) {
+          alert("Incorrect PIN. Please re-enter.");
+          sessionKey = null;
+          return false;
+        }
+      }
+
+      document.getElementById("pinOverlay").classList.add("hidden");
+      resetAutoLock();
+      renderApp();
+
+      if (pendingAssetToSave) {
+        estateData.push(pendingAssetToSave);
+        pendingAssetToSave = null;
+        await saveVault();
+        renderApp();
+      }
+
+      return true;
+    }
+
+    function lockVault() {
+      sessionKey = null;
+      estateData = [];
+      document.getElementById("assetModal").classList.add("hidden");
+      document.getElementById("pinInput").value = "";
+      document.getElementById("pinOverlay").classList.remove("hidden");
+      renderApp();
+    }
+
+    /* ==========================================================================
+       CRUD OPERATIONS (WITH IN-PLACE EDITING)
+       ========================================================================== */
+    function openAddModal() {
+      document.getElementById("editAssetId").value = "";
+      document.getElementById("modalHeaderTitle").innerHTML = `<i class="fa-solid fa-file-shield" style="color: var(--accent-blue);"></i> Add Asset / Account`;
+      clearModalFields();
+      document.getElementById("assetModal").classList.remove("hidden");
+    }
+
+    function openEditModal(id) {
+      const asset = estateData.find(a => a.id === id);
+      if (!asset) return;
+
+      document.getElementById("editAssetId").value = asset.id;
+      document.getElementById("modalHeaderTitle").innerHTML = `<i class="fa-solid fa-pen-to-square" style="color: var(--accent-blue);"></i> Edit / Update Balance`;
+      
+      document.getElementById("fCategory").value = asset.category || "Bank / FD";
+      document.getElementById("fMember").value = asset.member || "Self";
+      document.getElementById("fName").value = asset.name || "";
+      document.getElementById("fIdentifier").value = asset.identifier || "";
+      document.getElementById("fValue").value = asset.value || 0;
+      document.getElementById("fNominee").value = asset.nominee || "";
+      document.getElementById("fLinkedBank").value = asset.linkedBank || "";
+      document.getElementById("fLocation").value = asset.location || "";
+      document.getElementById("fInstructions").value = asset.instructions || "";
+
+      document.getElementById("assetModal").classList.remove("hidden");
+    }
+
+    document.getElementById("btnSaveAsset").addEventListener("click", async () => {
+      const name = document.getElementById("fName").value.trim();
+      const val = parseFloat(document.getElementById("fValue").value) || 0;
+      if (!name) return alert("Please specify the Institution or Asset Name.");
+
+      const editId = document.getElementById("editAssetId").value;
+      const todayStr = new Date().toISOString().slice(0, 10);
+
+      const record = {
+        category: document.getElementById("fCategory").value,
+        member: document.getElementById("fMember").value,
+        name: name,
+        identifier: document.getElementById("fIdentifier").value.trim(),
+        value: val,
+        nominee: document.getElementById("fNominee").value.trim() || "Not specified",
+        linkedBank: document.getElementById("fLinkedBank").value.trim(),
+        location: document.getElementById("fLocation").value.trim(),
+        instructions: document.getElementById("fInstructions").value.trim(),
+        updatedOn: todayStr
+      };
+
+      if (!sessionKey) {
+        pendingAssetToSave = record;
+        document.getElementById("assetModal").classList.add("hidden");
+        document.getElementById("pinOverlay").classList.remove("hidden");
+        alert("Session timed out. Please enter PIN to save.");
+        return;
+      }
+
+      if (editId) {
+        const index = estateData.findIndex(a => a.id === editId);
+        if (index !== -1) {
+          estateData[index] = { ...estateData[index], ...record };
+        }
+      } else {
+        record.id = `ast_${Date.now()}`;
+        estateData.push(record);
+      }
+
+      const ok = await saveVault();
+      if (ok) {
+        document.getElementById("assetModal").classList.add("hidden");
+        clearModalFields();
+        renderApp();
+      }
+    });
+
+    async function deleteAsset(id) {
+      if (confirm("Are you sure you want to remove this record?")) {
+        estateData = estateData.filter(a => a.id !== id);
+        await saveVault();
+        renderApp();
+      }
+    }
+
+    function clearModalFields() {
+      document.getElementById("editAssetId").value = "";
+      document.getElementById("fName").value = "";
+      document.getElementById("fIdentifier").value = "";
+      document.getElementById("fValue").value = "";
+      document.getElementById("fNominee").value = "";
+      document.getElementById("fLinkedBank").value = "";
+      document.getElementById("fLocation").value = "";
+      document.getElementById("fInstructions").value = "";
+    }
+
+    /* ==========================================================================
+       SMART UPSERT IMPORTER (UPDATES BALANCES AUTOMATICALLY)
+       ========================================================================== */
+    function handleSpreadsheetImport(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = async function(evt) {
+        try {
+          const data = new Uint8Array(evt.target.result);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+          const rows = XLSX.utils.sheet_to_json(firstSheet, { defval: "" });
+
+          if (!rows || rows.length === 0) return alert("Spreadsheet is empty.");
+
+          let updatedCount = 0;
+          let addedCount = 0;
+          const todayStr = new Date().toISOString().slice(0, 10);
+
+          rows.forEach((row, idx) => {
+            const keys = Object.keys(row);
+            const getVal = (pattern) => {
+              const k = keys.find(key => new RegExp(pattern, "i").test(key));
+              return k ? String(row[k]).trim() : "";
+            };
+
+            const name = getVal("name|scheme|institution|bank|description");
+            if (!name) return;
+
+            const identifier = getVal("account|folio|uan|policy|id");
+            const value = parseFloat(getVal("value|balance|amount")) || 0;
+            const category = getVal("category|type") || "Bank / FD";
+            const member = getVal("owner|member|holder|family") || "Self";
+            const nominee = getVal("nominee") || "Not specified";
+            const linkedBank = getVal("linked|bank");
+            const location = getVal("location|doc");
+            const instructions = getVal("instruction|claim|note");
+
+            const existingIndex = estateData.findIndex(a => 
+              (identifier && a.identifier === identifier) || 
+              (!identifier && a.name.toLowerCase() === name.toLowerCase() && a.member === member)
+            );
+
+            if (existingIndex !== -1) {
+              estateData[existingIndex].value = value;
+              estateData[existingIndex].updatedOn = todayStr;
+              if (nominee && nominee !== "Not specified") estateData[existingIndex].nominee = nominee;
+              if (instructions) estateData[existingIndex].instructions = instructions;
+              updatedCount++;
+            } else {
+              estateData.push({
+                id: `ast_${Date.now()}_${idx}`,
+                category: category,
+                member: member,
+                name: name,
+                identifier: identifier,
+                value: value,
+                nominee: nominee,
+                linkedBank: linkedBank,
+                location: location,
+                instructions: instructions,
+                updatedOn: todayStr
+              });
+              addedCount++;
+            }
+          });
+
+          await saveVault();
+          renderApp();
+          alert(`Spreadsheet Processed:\n• Updated existing balances: ${updatedCount}\n• Newly added accounts: ${addedCount}`);
+        } catch (err) {
+          alert("Error parsing file: " + err.message);
+        }
+      };
+
+      reader.readAsArrayBuffer(file);
+      e.target.value = '';
+    }
+
+    /* ==========================================================================
+       RENDER & UI
+       ========================================================================== */
+    let currentCategoryFilter = "ALL";
+
+    function renderApp() {
+      const activeMember = document.getElementById("familyFilter").value;
+      const tbody = document.getElementById("assetsTableBody");
+      tbody.innerHTML = "";
+
+      let totWealth = 0;
+      let bankWealth = 0;
+      let pfWealth = 0;
+      let marketWealth = 0;
+
+      const filtered = estateData.filter(a => {
+        const memMatch = (activeMember === "ALL" || a.member === activeMember);
+        const catMatch = (currentCategoryFilter === "ALL" || a.category === currentCategoryFilter);
+        return memMatch && catMatch;
+      });
+
+      estateData.filter(a => activeMember === "ALL" || a.member === activeMember).forEach(a => {
+        totWealth += a.value;
+        if (a.category === "Bank / FD") bankWealth += a.value;
+        else if (a.category === "EPF / PPF") pfWealth += a.value;
+        else if (a.category === "Mutual Fund" || a.category === "Direct Stock") marketWealth += a.value;
+      });
+
+      document.getElementById("kpiTotalWealth").innerText = `₹${totWealth.toLocaleString('en-IN')}`;
+      document.getElementById("kpiBankWealth").innerText = `₹${bankWealth.toLocaleString('en-IN')}`;
+      document.getElementById("kpiPfWealth").innerText = `₹${pfWealth.toLocaleString('en-IN')}`;
+      document.getElementById("kpiMarketWealth").innerText = `₹${marketWealth.toLocaleString('en-IN')}`;
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 2.5rem;">No records found. Click <b>"Add Account"</b> or <b>"Import"</b> to add your holdings.</td></tr>`;
+        return;
+      }
+
+      filtered.forEach(a => {
+        let badgeClass = "badge-bank";
+        if (a.category === "Mutual Fund") badgeClass = "badge-mf";
+        else if (a.category === "EPF / PPF") badgeClass = "badge-epf";
+        else if (a.category === "Direct Stock") badgeClass = "badge-stock";
+        else if (a.category === "Insurance") badgeClass = "badge-ins";
+
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td><span class="badge ${badgeClass}">${a.category}</span></td>
+          <td style="font-weight: 500;">${a.member}</td>
+          <td>
+            <div style="font-weight: 600;">${a.name}</div>
+            ${a.linkedBank ? `<div style="font-size: 0.75rem; color: var(--text-muted);">Linked: ${a.linkedBank}</div>` : ''}
+          </td>
+          <td style="font-family: monospace; font-size: 0.85rem;">${a.identifier || '—'}</td>
+          <td>
+            <div style="font-weight: 700; color: #fff;">₹${a.value.toLocaleString('en-IN')}</div>
+            ${a.updatedOn ? `<div style="font-size: 0.7rem; color: var(--text-muted);">As of: ${a.updatedOn}</div>` : ''}
+          </td>
+          <td style="color: var(--accent-amber); font-weight: 500;">${a.nominee}</td>
+          <td style="max-width: 250px; font-size: 0.8rem;">
+            ${a.location ? `<div><b>Location:</b> ${a.location}</div>` : ''}
+            ${a.instructions ? `<div style="color: var(--text-muted);"><b>Claim Note:</b> ${a.instructions}</div>` : ''}
+          </td>
+          <td style="text-align: center; white-space: nowrap;">
+            <button class="btn-action" title="Edit / Update Balance" onclick="openEditModal('${a.id}')"><i class="fa-solid fa-pen-to-square"></i></button>
+            <button class="btn-danger" title="Delete" onclick="deleteAsset('${a.id}')"><i class="fa-solid fa-trash"></i></button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    document.querySelectorAll(".pill").forEach(pill => {
+      pill.addEventListener("click", () => {
+        document.querySelectorAll(".pill").forEach(p => p.classList.remove("active"));
+        pill.classList.add("active");
+        currentCategoryFilter = pill.getAttribute("data-cat");
+        renderApp();
+      });
+    });
+
+    /* ==========================================================================
+       STARTUP & LISTENERS
+       ========================================================================== */
+    document.getElementById("btnPinSubmit").addEventListener("click", () => {
+      const pin = document.getElementById("pinInput").value;
+      if (pin.length >= 4) unlockVault(pin);
+    });
+    document.getElementById("pinInput").addEventListener("keypress", (e) => {
+      if (e.key === 'Enter') document.getElementById("btnPinSubmit").click();
+    });
+
+    document.getElementById("familyFilter").addEventListener("change", renderApp);
+    document.getElementById("btnOpenAddModal").addEventListener("click", openAddModal);
+
+    document.getElementById("btnImportSpreadsheet").addEventListener("click", () => document.getElementById("spreadsheetFileInput").click());
+    document.getElementById("spreadsheetFileInput").addEventListener("change", handleSpreadsheetImport);
+    
+    document.getElementById("btnPrintDossier").addEventListener("click", () => window.print());
+    document.getElementById("btnLock").addEventListener("click", lockVault);
+
+    // Export & Restore handlers
+    document.getElementById("btnExportVault").addEventListener("click", () => {
+      const savedVault = localStorage.getItem("pf_estate_vault");
+      const savedSalt = localStorage.getItem("pf_estate_salt");
+
+      if (!savedVault || estateData.length === 0) return alert("Vault is empty.");
+
+      const parsed = JSON.parse(savedVault);
+      const backupPackage = {
+        magic: VAULT_HEADER,
+        salt: JSON.parse(savedSalt),
+        iv: parsed.iv,
+        ciphertext: parsed.data,
+        exportTimestamp: new Date().toISOString(),
+        itemCount: estateData.length
+      };
+
+      const jsonStr = JSON.stringify(backupPackage);
+      const blob = new Blob([jsonStr], { type: "application/json;charset=utf-8" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `family_estate_backup_${new Date().toISOString().slice(0, 10)}.vault`;
+      a.click();
+      showToast("Encrypted Backup Downloaded");
+    });
+
+    function openRestoreModal() {
+      document.getElementById("restoreModal").classList.remove("hidden");
+      document.getElementById("restoreTextInput").value = "";
+      document.getElementById("restoreFileInput").value = "";
+      document.getElementById("restorePinInput").value = "";
+    }
+    document.getElementById("btnOpenRestoreModal").addEventListener("click", openRestoreModal);
+    document.getElementById("btnHeaderRestore").addEventListener("click", openRestoreModal);
+
+    document.getElementById("btnExecuteRestore").addEventListener("click", async () => {
+      const pin = document.getElementById("restorePinInput").value.trim();
+      if (!pin) return alert("Please enter the Master PIN for this backup.");
+
+      const textData = document.getElementById("restoreTextInput").value.trim();
+      const fileInput = document.getElementById("restoreFileInput");
+
+      if (textData) {
+        processRawBackupPayload(textData, pin);
+      } else if (fileInput.files && fileInput.files[0]) {
+        const file = fileInput.files[0];
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+          processRawBackupPayload(evt.target.result, pin);
+        };
+        reader.readAsText(file, "UTF-8");
+      } else {
+        alert("Please select a .vault file or paste the backup text.");
+      }
+    });
+
+    async function processRawBackupPayload(rawText, pin) {
+      try {
+        let pkg = JSON.parse(rawText.trim());
+        if (!pkg || (pkg.magic !== VAULT_HEADER && pkg.header !== VAULT_HEADER) || !pkg.ciphertext || !pkg.salt) {
+          return alert("Invalid file format. Not generated by this Family Vault.");
+        }
+
+        const saltArray = new Uint8Array(Array.from(pkg.salt).map(x => Number(x)));
+        const ivArray = new Uint8Array(Array.from(pkg.iv).map(x => Number(x)));
+        const cipherArray = new Uint8Array(Array.from(pkg.ciphertext).map(x => Number(x)));
+
+        const key = await deriveKey(pin, saltArray);
+
+        let decrypted;
+        try {
+          decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv: ivArray }, key, cipherArray);
+        } catch (decryptErr) {
+          return alert("Decryption failed. The Master PIN does not match this backup.");
+        }
+
+        const restoredData = JSON.parse(decoder.decode(decrypted));
+        if (!Array.isArray(restoredData)) throw new Error("Invalid payload format.");
+
+        localStorage.setItem("pf_estate_salt", JSON.stringify(Array.from(saltArray)));
+        sessionKey = key;
+        estateData = restoredData;
+        await saveVault();
+
+        document.getElementById("restoreModal").classList.add("hidden");
+        document.getElementById("pinOverlay").classList.add("hidden");
+        renderApp();
+        alert(`Successfully restored ${estateData.length} records!`);
+      } catch (err) {
+        alert("Error restoring backup: " + err.message);
+      }
+    }
+
+    function downloadExcelTemplate() {
+      const templateData = [
+        {
+          "Category": "Bank / FD",
+          "Owner": "Self",
+          "Institution / Scheme": "HDFC Bank (Salary Account)",
+          "Account / Folio / UAN": "501002938475",
+          "Value (INR)": 150000,
+          "Nominee": "Spouse (100%)",
+          "Linked Bank": "Direct Debit",
+          "Document Location": "Chequebook in Drawer 1",
+          "Claim Instructions": "Joint holder has immediate access; Branch visit with death cert if single"
+        },
+        {
+          "Category": "EPF / PPF",
+          "Owner": "Self",
+          "Institution / Scheme": "EPFO (EPF & Pension)",
+          "Account / Folio / UAN": "UAN 100293847561",
+          "Value (INR)": 850000,
+          "Nominee": "Spouse (100%)",
+          "Linked Bank": "SBI Salary A/c",
+          "Document Location": "EPFO Unified Portal Login",
+          "Claim Instructions": "File Form 20 online via employer HR with death certificate"
+        },
+        {
+          "Category": "Mutual Fund",
+          "Owner": "Self",
+          "Institution / Scheme": "Parag Parikh Flexi Cap Fund",
+          "Account / Folio / UAN": "10293847",
+          "Value (INR)": 450000,
+          "Nominee": "Spouse (100%)",
+          "Linked Bank": "HDFC Salary A/c",
+          "Document Location": "Online via MFCentral / CAMS",
+          "Claim Instructions": "Submit Transmission Form T3 to CAMS or PPFAS AMC directly"
+        },
+        {
+          "Category": "Insurance",
+          "Owner": "Self",
+          "Institution / Scheme": "HDFC Life Click 2 Protect (Term Plan)",
+          "Account / Folio / UAN": "Pol # 89172635",
+          "Value (INR)": 10000000,
+          "Nominee": "Spouse (100%)",
+          "Linked Bank": "HDFC Bank",
+          "Document Location": "Original Policy bond in Safe Locker",
+          "Claim Instructions": "Call 1800-266-9777. Submit original policy bond + death certificate"
+        }
+      ];
+
+      const ws = XLSX.utils.json_to_sheet(templateData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Estate_Template");
+      XLSX.writeFile(wb, "Family_Portfolio_Template.xlsx");
+    }
+
+    document.getElementById("btnDownloadTemplate").addEventListener("click", downloadExcelTemplate);
+
+    window.addEventListener("DOMContentLoaded", () => {
+      if (!localStorage.getItem("pf_estate_salt")) {
+        document.getElementById("pinTitle").innerText = "Create Master PIN";
+        document.getElementById("pinMsg").innerText = "Create a 4 to 8 digit Master PIN to initialize your Family Estate Vault.";
+        document.getElementById("btnPinSubmit").innerText = "Initialize Vault";
+      }
+    });
+  </script>
+</body>
+</html>
