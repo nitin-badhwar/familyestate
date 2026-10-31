@@ -4,8 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Family Estate & Wealth Vault</title>
-  <!-- Chart.js & SheetJS for Excel (.xlsx) parsing -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Essential parsing libraries -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <style>
@@ -25,7 +24,7 @@
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     body { background-color: var(--bg-main); color: var(--text-main); min-height: 100vh; display: flex; flex-direction: column; }
     
-    header { background: var(--bg-card); border-bottom: 1px solid var(--border-color); padding: 1rem 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; position: sticky; top: 0; z-index: 100; }
+    header { background: var(--bg-card); border-bottom: 1px solid var(--border-color); padding: 1rem 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; position: sticky; top: 0; z-index: 50; }
     .brand { display: flex; align-items: center; gap: 0.75rem; font-size: 1.25rem; font-weight: 700; color: var(--accent-blue); }
     .header-actions { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
     
@@ -73,9 +72,10 @@
     .guide-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 0.75rem; padding: 1.25rem; display: flex; flex-direction: column; gap: 0.85rem; }
     .guide-box { background: #0f172a; border-left: 4px solid var(--accent-blue); padding: 0.85rem; border-radius: 0.35rem; font-size: 0.85rem; }
 
-    .overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 1000; }
-    .modal-box { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 1rem; padding: 1.75rem; max-width: 520px; width: 90%; max-height: 90vh; overflow-y: auto; }
-    .pin-input { font-size: 1.5rem; letter-spacing: 0.5rem; text-align: center; padding: 0.75rem; width: 100%; border-radius: 0.5rem; background: #0f172a; border: 1px solid var(--border-color); color: #fff; }
+    /* OVERLAY & MODALS - Explicit centering and high z-index */
+    .overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 9999; }
+    .modal-box { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 1rem; padding: 1.75rem; max-width: 520px; width: 90%; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); }
+    .pin-input { font-size: 1.5rem; letter-spacing: 0.5rem; text-align: center; padding: 0.75rem; width: 100%; border-radius: 0.5rem; background: #0f172a; border: 1px solid var(--border-color); color: #fff; margin-top: 0.5rem; }
     .hidden { display: none !important; }
 
     .security-badge { font-size: 0.75rem; background: rgba(52, 211, 153, 0.1); border: 1px solid rgba(52, 211, 153, 0.3); color: var(--accent-green); padding: 0.2rem 0.5rem; border-radius: 4px; display: inline-flex; align-items: center; gap: 0.3rem; }
@@ -98,21 +98,19 @@
   <!-- MASTER PIN SHIELD -->
   <div id="pinOverlay" class="overlay">
     <div class="modal-box" style="text-align: center;">
-      <i class="fa-solid fa-shield-halved fa-3x" style="color: var(--accent-blue); margin-bottom: 0.75rem;"></i>
-      <h2 id="pinTitle">Encrypted Family Vault</h2>
-      <p id="pinMsg" style="font-size: 0.875rem; color: var(--text-muted); margin: 0.5rem 0 1rem;">
+      <i class="fa-solid fa-shield-halved fa-3x" style="color: var(--accent-blue); margin-bottom: 0.75rem; display: block;"></i>
+      <h2 id="pinTitle" style="color: #fff; margin-bottom: 0.5rem;">Encrypted Family Vault</h2>
+      <p id="pinMsg" style="font-size: 0.875rem; color: var(--text-muted); margin-bottom: 1rem;">
         Protected by client-side AES-256-GCM. Decryption keys never leave this device.
       </p>
       <input type="password" id="pinInput" class="pin-input" maxlength="8" placeholder="••••" autofocus />
-      <button id="btnPinSubmit" class="btn-primary" style="justify-content: center; padding: 0.75rem; width: 100%; margin-top: 1rem;">Unlock Vault</button>
+      <button id="btnPinSubmit" class="btn-primary" style="justify-content: center; padding: 0.75rem; width: 100%; margin-top: 1rem; font-size: 1rem;">Unlock Vault</button>
       
       <div style="margin-top: 1.25rem; border-top: 1px solid var(--border-color); padding-top: 0.85rem;">
-        <span style="font-size: 0.75rem; color: var(--text-muted);">Moving devices or setting up your phone?</span>
-        <div>
-          <button id="btnOpenRestoreModal" type="button" style="background: none; border: none; color: var(--accent-blue); font-size: 0.85rem; cursor: pointer; text-decoration: underline; margin-top: 0.4rem;">
-            <i class="fa-solid fa-cloud-arrow-down"></i> Restore / Import Backup
-          </button>
-        </div>
+        <span style="font-size: 0.75rem; color: var(--text-muted); display: block;">Moving devices or setting up on phone?</span>
+        <button id="btnOpenRestoreModal" type="button" style="background: none; border: none; color: var(--accent-blue); font-size: 0.85rem; cursor: pointer; text-decoration: underline; margin-top: 0.4rem;">
+          <i class="fa-solid fa-cloud-arrow-down"></i> Restore / Import Backup
+        </button>
       </div>
     </div>
   </div>
@@ -125,7 +123,7 @@
         <i class="fa-solid fa-xmark" style="cursor: pointer;" onclick="document.getElementById('restoreModal').classList.add('hidden')"></i>
       </h3>
       <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem;">
-        Choose your downloaded <code>.vault</code> file, or paste the backup code directly:
+        Select your downloaded <code>.vault</code> file, or paste the backup code directly:
       </p>
 
       <div style="display: flex; flex-direction: column; gap: 1rem;">
@@ -320,7 +318,7 @@
         <div class="guide-box">
           <strong>1. Snapshot Philosophy</strong>
           <p style="margin-top: 0.25rem; color: var(--text-muted);">
-            In an estate vault, day-to-day fluctuations matter less than knowing <i>where</i> the money is and the <i>order of magnitude</i>. Updating every 1–3 months (or when major deposits happen) is plenty.
+            In an estate vault, day-to-day fluctuations matter less than knowing <i>where</i> the money is and the <i>order of magnitude</i>. Updating every 1–3 months is plenty.
           </p>
         </div>
 
@@ -412,7 +410,7 @@
       if (!toast) {
         toast = document.createElement("div");
         toast.id = "saveToast";
-        toast.style = "position:fixed;bottom:20px;right:20px;background:#15803d;color:#fff;padding:10px 18px;border-radius:8px;font-size:0.85rem;font-weight:600;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,0.5);display:flex;align-items:center;gap:8px;";
+        toast.style = "position:fixed;bottom:20px;right:20px;background:#15803d;color:#fff;padding:10px 18px;border-radius:8px;font-size:0.85rem;font-weight:600;z-index:99999;box-shadow:0 4px 12px rgba(0,0,0,0.5);display:flex;align-items:center;gap:8px;";
         document.body.appendChild(toast);
       }
       toast.innerHTML = `<i class="fa-solid fa-shield-check"></i> ${msg}`;
@@ -569,7 +567,7 @@
     }
 
     /* ==========================================================================
-       SMART UPSERT IMPORTER (UPDATES BALANCES AUTOMATICALLY)
+       SMART UPSERT IMPORTER
        ========================================================================== */
     function handleSpreadsheetImport(e) {
       const file = e.target.files[0];
@@ -899,13 +897,12 @@
 
     document.getElementById("btnDownloadTemplate").addEventListener("click", downloadExcelTemplate);
 
-    window.addEventListener("DOMContentLoaded", () => {
-      if (!localStorage.getItem("pf_estate_salt")) {
-        document.getElementById("pinTitle").innerText = "Create Master PIN";
-        document.getElementById("pinMsg").innerText = "Create a 4 to 8 digit Master PIN to initialize your Family Estate Vault.";
-        document.getElementById("btnPinSubmit").innerText = "Initialize Vault";
-      }
-    });
+    // Initial check on load
+    if (!localStorage.getItem("pf_estate_salt")) {
+      document.getElementById("pinTitle").innerText = "Create Master PIN";
+      document.getElementById("pinMsg").innerText = "Create a 4 to 8 digit Master PIN to initialize your Family Estate Vault.";
+      document.getElementById("btnPinSubmit").innerText = "Initialize Vault";
+    }
   </script>
 </body>
 </html>
