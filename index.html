@@ -80,7 +80,7 @@
 
     @media print {
       body { background: #fff !important; color: #000 !important; }
-      header, .header-actions, .filter-pills, .btn-danger, button, #pinOverlay, #addModal { display: none !important; }
+      header, .header-actions, .filter-pills, .btn-danger, button, #pinOverlay, #addModal, #restoreModal { display: none !important; }
       .container { max-width: 100% !important; padding: 0 !important; }
       .kpi-grid, .guide-card { display: none !important; }
       .table-card { border: none !important; }
@@ -104,11 +104,51 @@
       <input type="password" id="pinInput" class="pin-input" maxlength="8" placeholder="••••" autofocus />
       <button id="btnPinSubmit" class="btn-primary" style="justify-content: center; padding: 0.75rem; width: 100%; margin-top: 1rem;">Unlock Vault</button>
       
-      <!-- Emergency Restore link inside lock modal -->
+      <!-- Safe Android/Cross-device Restore trigger -->
       <div style="margin-top: 1.25rem; border-top: 1px solid var(--border-color); padding-top: 0.85rem;">
-        <span style="font-size: 0.75rem; color: var(--text-muted);">Moving devices or cleared browser cache?</span>
-        <button id="btnRestoreFromLock" type="button" style="background: none; border: none; color: var(--accent-blue); font-size: 0.8rem; cursor: pointer; text-decoration: underline; margin-top: 0.35rem;">
-          <i class="fa-solid fa-file-shield"></i> Restore from .vault Backup File
+        <span style="font-size: 0.75rem; color: var(--text-muted);">Moving devices or setting up your phone?</span>
+        <div>
+          <button id="btnOpenRestoreModal" type="button" style="background: none; border: none; color: var(--accent-blue); font-size: 0.85rem; cursor: pointer; text-decoration: underline; margin-top: 0.4rem;">
+            <i class="fa-solid fa-cloud-arrow-down"></i> Restore / Import Backup
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RESTORE MODAL (FILE PICKER + DIRECT TEXT PASTE FOR ANDROID) -->
+  <div id="restoreModal" class="overlay hidden">
+    <div class="modal-box">
+      <h3 style="font-size: 1.15rem; display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+        <span><i class="fa-solid fa-clock-rotate-left" style="color: var(--accent-blue);"></i> Restore Vault Backup</span>
+        <i class="fa-solid fa-xmark" style="cursor: pointer;" onclick="document.getElementById('restoreModal').classList.add('hidden')"></i>
+      </h3>
+      <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem;">
+        Choose your downloaded <code>.vault</code> file, or paste the backup code directly:
+      </p>
+
+      <div style="display: flex; flex-direction: column; gap: 1rem;">
+        <!-- Option A: File Picker -->
+        <div style="background: #0f172a; padding: 1rem; border-radius: 0.5rem; border: 1px dashed var(--border-color);">
+          <div style="font-size: 0.85rem; font-weight: 600; margin-bottom: 0.5rem;">Option 1: Choose File</div>
+          <input type="file" id="restoreFileInput" accept="*/*" style="width: 100%; font-size: 0.8rem;" />
+        </div>
+
+        <div style="text-align: center; font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">— OR —</div>
+
+        <!-- Option B: Paste Text (100% Reliable on Android) -->
+        <div style="background: #0f172a; padding: 1rem; border-radius: 0.5rem; border: 1px dashed var(--border-color);">
+          <div style="font-size: 0.85rem; font-weight: 600; margin-bottom: 0.5rem;">Option 2: Paste Backup Code / Text</div>
+          <textarea id="restoreTextInput" rows="3" placeholder="Paste the content of your .vault file here..." style="width: 100%; font-size: 0.75rem; font-family: monospace; resize: vertical;"></textarea>
+        </div>
+
+        <div>
+          <label style="font-size: 0.8rem; color: var(--text-muted);">Enter Master PIN of the backup:</label>
+          <input type="password" id="restorePinInput" placeholder="Master PIN" style="width: 100%; margin-top: 0.25rem;" />
+        </div>
+
+        <button id="btnExecuteRestore" class="btn-primary" style="justify-content: center; padding: 0.75rem;">
+          <i class="fa-solid fa-unlock-keyhole"></i> Decrypt & Restore
         </button>
       </div>
     </div>
@@ -198,9 +238,7 @@
     </div>
 
     <div class="header-actions">
-      <!-- Hidden file inputs -->
       <input type="file" id="spreadsheetFileInput" accept=".csv, .xlsx, .xls" class="hidden" />
-      <input type="file" id="restoreVaultInput" accept=".vault, .enc, .json" class="hidden" />
 
       <button id="btnImportSpreadsheet" title="Import Excel or CSV"><i class="fa-solid fa-file-excel" style="color: #4ade80;"></i> Import</button>
       <button id="btnDownloadTemplate" title="Download Excel template"><i class="fa-solid fa-file-arrow-down"></i> Template</button>
@@ -208,8 +246,8 @@
       <button id="btnPrintDossier" class="btn-success" title="Print confidential family dossier"><i class="fa-solid fa-print"></i> Print</button>
       
       <!-- Native Encrypted Backup Buttons -->
-      <button id="btnExportVault" class="btn-amber" title="Export encrypted backup that only this app can read"><i class="fa-solid fa-file-shield"></i> Export Backup</button>
-      <button id="btnTriggerRestore" title="Restore encrypted backup file"><i class="fa-solid fa-clock-rotate-left"></i> Restore</button>
+      <button id="btnExportVault" class="btn-amber" title="Export encrypted backup"><i class="fa-solid fa-file-shield"></i> Export Backup</button>
+      <button id="btnHeaderRestore" title="Restore encrypted backup file"><i class="fa-solid fa-clock-rotate-left"></i> Restore</button>
       <button id="btnLock" title="Lock Vault"><i class="fa-solid fa-lock"></i> Lock</button>
     </div>
   </header>
@@ -297,13 +335,6 @@
         <div class="guide-box">
           <strong>4. Insurance Policies</strong>
           <p style="margin-top: 0.25rem; color: var(--text-muted);">Notify insurers promptly. Documents required: Original Policy Document, Death Certificate, and Nominee Cancelled Cheque.</p>
-        </div>
-
-        <div style="background: rgba(56, 189, 248, 0.08); border: 1px dashed var(--accent-blue); padding: 0.85rem; border-radius: 0.35rem; font-size: 0.8rem;">
-          <b style="color: var(--accent-blue);"><i class="fa-solid fa-shield-halved"></i> Vault Backup Advice:</b>
-          <p style="margin-top: 0.35rem; color: var(--text-muted);">
-            Click <b>"Export Backup"</b> and store the <code>.vault</code> file on your shared Family Drive or email it to your spouse. Since it is encrypted with your PIN, it is safe from any unauthorized reading.
-          </p>
         </div>
       </div>
     </div>
@@ -424,9 +455,8 @@
     }
 
     /* ==========================================================================
-       PROPRIETARY ENCRYPTED BACKUP (.VAULT) ENGINE
+       HARDENED BACKUP & RESTORE (ANDROID + DESKTOP COMPATIBLE)
        ========================================================================== */
-    // Export a single bundle containing salt + iv + ciphertext that only this app can parse
     document.getElementById("btnExportVault").addEventListener("click", () => {
       const savedVault = localStorage.getItem("pf_estate_vault");
       const savedSalt = localStorage.getItem("pf_estate_salt");
@@ -445,7 +475,8 @@
         itemCount: estateData.length
       };
 
-      const blob = new Blob([JSON.stringify(backupPackage)], { type: "application/octet-stream" });
+      const jsonStr = JSON.stringify(backupPackage);
+      const blob = new Blob([jsonStr], { type: "application/json;charset=utf-8" });
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
       a.download = `family_estate_backup_${new Date().toISOString().slice(0, 10)}.vault`;
@@ -453,58 +484,86 @@
       showToast("Encrypted Backup Downloaded");
     });
 
-    document.getElementById("btnTriggerRestore").addEventListener("click", () => {
-      document.getElementById("restoreVaultInput").click();
+    // Open unified restore modal
+    function openRestoreModal() {
+      document.getElementById("restoreModal").classList.remove("hidden");
+      document.getElementById("restoreTextInput").value = "";
+      document.getElementById("restoreFileInput").value = "";
+      document.getElementById("restorePinInput").value = "";
+    }
+    document.getElementById("btnOpenRestoreModal").addEventListener("click", openRestoreModal);
+    document.getElementById("btnHeaderRestore").addEventListener("click", openRestoreModal);
+
+    // Unified restore processor with clean byte normalization
+    document.getElementById("btnExecuteRestore").addEventListener("click", async () => {
+      const pin = document.getElementById("restorePinInput").value.trim();
+      if (!pin) return alert("Please enter the Master PIN for this backup.");
+
+      const textData = document.getElementById("restoreTextInput").value.trim();
+      const fileInput = document.getElementById("restoreFileInput");
+
+      if (textData) {
+        processRawBackupPayload(textData, pin);
+      } else if (fileInput.files && fileInput.files[0]) {
+        const file = fileInput.files[0];
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+          processRawBackupPayload(evt.target.result, pin);
+        };
+        reader.readAsText(file, "UTF-8");
+      } else {
+        alert("Please select a .vault file or paste the backup text into the box.");
+      }
     });
 
-    document.getElementById("btnRestoreFromLock").addEventListener("click", () => {
-      document.getElementById("restoreVaultInput").click();
-    });
-
-    document.getElementById("restoreVaultInput").addEventListener("change", (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = async (evt) => {
+    async function processRawBackupPayload(rawText, pin) {
+      try {
+        let pkg;
         try {
-          const pkg = JSON.parse(evt.target.result);
-          if (pkg.magic !== VAULT_HEADER || !pkg.ciphertext || !pkg.salt) {
-            return alert("Invalid file format. This file was not generated by this Family Vault.");
-          }
-
-          const pin = prompt("Enter the Master PIN that was used to encrypt this backup file:");
-          if (!pin) return;
-
-          const saltArray = new Uint8Array(pkg.salt);
-          const key = await deriveKey(pin, saltArray);
-
-          const iv = new Uint8Array(pkg.iv);
-          const ciphertext = new Uint8Array(pkg.ciphertext);
-          const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv: iv }, key, ciphertext);
-          const restoredData = JSON.parse(decoder.decode(decrypted));
-
-          if (!Array.isArray(restoredData)) {
-            throw new Error("Corrupted payload structure.");
-          }
-
-          // Restore state permanently into this browser
-          localStorage.setItem("pf_estate_salt", JSON.stringify(pkg.salt));
-          sessionKey = key;
-          estateData = restoredData;
-          await saveVault();
-
-          document.getElementById("pinOverlay").classList.add("hidden");
-          renderApp();
-          alert(`Successfully unlocked and restored ${estateData.length} records from backup!`);
-        } catch (err) {
-          alert("Restore failed: Incorrect PIN or damaged file.");
+          pkg = JSON.parse(rawText.trim());
+        } catch (e) {
+          return alert("Invalid file structure. The selected file is not a valid JSON/Vault backup.");
         }
-      };
 
-      reader.readAsText(file);
-      e.target.value = "";
-    });
+        // Validate structure safely
+        if (!pkg || (pkg.magic !== VAULT_HEADER && pkg.header !== VAULT_HEADER) || !pkg.ciphertext || !pkg.salt) {
+          return alert("Invalid file format. This file was not generated by this Family Vault.");
+        }
+
+        // Android safe byte conversion
+        const saltArray = new Uint8Array(Array.from(pkg.salt).map(x => Number(x)));
+        const ivArray = new Uint8Array(Array.from(pkg.iv).map(x => Number(x)));
+        const cipherArray = new Uint8Array(Array.from(pkg.ciphertext).map(x => Number(x)));
+
+        const key = await deriveKey(pin, saltArray);
+
+        let decrypted;
+        try {
+          decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv: ivArray }, key, cipherArray);
+        } catch (decryptErr) {
+          return alert("Decryption failed. The Master PIN you entered does not match this backup file.");
+        }
+
+        const restoredData = JSON.parse(decoder.decode(decrypted));
+        if (!Array.isArray(restoredData)) {
+          throw new Error("Invalid payload format inside vault.");
+        }
+
+        // Save successfully to device localStorage
+        localStorage.setItem("pf_estate_salt", JSON.stringify(Array.from(saltArray)));
+        sessionKey = key;
+        estateData = restoredData;
+        await saveVault();
+
+        document.getElementById("restoreModal").classList.add("hidden");
+        document.getElementById("pinOverlay").classList.add("hidden");
+        renderApp();
+        alert(`Successfully restored ${estateData.length} accounts/assets onto your device!`);
+      } catch (err) {
+        console.error("Restore error:", err);
+        alert("Error restoring backup: " + err.message);
+      }
+    }
 
     /* ==========================================================================
        CRUD & SPREADSHEET LOGIC
@@ -593,7 +652,7 @@
 
           await saveVault();
           renderApp();
-          alert(`Imported ${count} assets. Encrypted and saved to HTTPS storage.`);
+          alert(`Imported ${count} assets. Encrypted and saved.`);
         } catch (err) {
           alert("Error parsing file: " + err.message);
         }
