@@ -340,7 +340,7 @@
     </div>
   </div>
 
-  <script>
+ <script>
     /* ==========================================================================
        AUTHENTICATED VAULT FORMAT & CLIENT-SIDE AES-256-GCM
        ========================================================================== */
@@ -348,22 +348,23 @@
     let sessionKey = null;
     let estateData = [];
     let autoLockTimer = null;
+    let pendingAssetToSave = null; // Preserves form data if lock occurs
 
     const encoder = new TextEncoder();
     const decoder = new TextDecoder();
 
+    // 15-minute relaxed inactivity lock (only on complete idle)
     function resetAutoLock() {
       clearTimeout(autoLockTimer);
       if (sessionKey) {
-        autoLockTimer = setTimeout(() => lockVault(), 5 * 60 * 1000);
+        autoLockTimer = setTimeout(() => {
+          lockVault();
+        }, 15 * 60 * 1000); // 15 mins
       }
     }
     window.addEventListener("mousemove", resetAutoLock);
     window.addEventListener("keydown", resetAutoLock);
-
-    document.addEventListener("visibilitychange", () => {
-      if (document.hidden && sessionKey) lockVault();
-    });
+    window.addEventListener("touchstart", resetAutoLock);
 
     async function deriveKey(pin, salt) {
       const pinBuffer = encoder.encode(pin);
@@ -378,7 +379,10 @@
     }
 
     async function saveVault() {
-      if (!sessionKey) return;
+      if (!sessionKey) {
+        console.warn("Save aborted: No active session key.");
+        return false;
+      }
       try {
         const jsonStr = JSON.stringify(estateData);
         const iv = crypto.getRandomValues(new Uint8Array(12));
@@ -393,9 +397,11 @@
 
         localStorage.setItem("pf_estate_vault", JSON.stringify(payload));
         showToast("Encrypted & Saved");
+        return true;
       } catch (err) {
         console.error("Encryption failed:", err);
         alert("Failed to save encrypted records: " + err.message);
+        return false;
       }
     }
 
@@ -436,6 +442,7 @@
           estateData = JSON.parse(decoder.decode(decrypted));
         } catch (e) {
           alert("Incorrect PIN. Please re-enter.");
+          sessionKey = null;
           return false;
         }
       }
@@ -443,19 +450,87 @@
       document.getElementById("pinOverlay").classList.add("hidden");
       resetAutoLock();
       renderApp();
+
+      // If a pending asset was interrupted by a lock, save it now
+      if (pendingAssetToSave) {
+        estateData.push(pendingAssetToSave);
+        pendingAssetToSave = null;
+        await saveVault();
+        renderApp();
+        showToast("Pending entry saved successfully!");
+      }
+
       return true;
     }
 
     function lockVault() {
       sessionKey = null;
       estateData = [];
+      document.getElementById("addModal").classList.add("hidden"); // close open forms
       document.getElementById("pinInput").value = "";
       document.getElementById("pinOverlay").classList.remove("hidden");
       renderApp();
     }
 
     /* ==========================================================================
-       HARDENED BACKUP & RESTORE (ANDROID + DESKTOP COMPATIBLE)
+       RESILIENT ASSET SAVING (WITH SESSION RE-AUTH GUARD)
+       ========================================================================== */
+    document.getElementById("btnSaveAsset").addEventListener("click", async () => {
+      const name = document.getElementById("fName").value.trim();
+      const val = parseFloat(document.getElementById("fValue").value) || 0;
+      if (!name) return alert("Please specify the Institution or Asset Name.");
+
+      const newAsset = {
+        id: `ast_${Date.now()}`,
+        category: document.getElementById("fCategory").value,
+        member: document.getElementById("fMember").value,
+        name: name,
+        identifier: document.getElementById("fIdentifier").value.trim(),
+        value: val,
+        nominee: document.getElementById("fNominee").value.trim() || "Not specified",
+        linkedBank: document.getElementById("fLinkedBank").value.trim(),
+        location: document.getElementById("fLocation").value.trim(),
+        instructions: document.getElementById("fInstructions").value.trim()
+      };
+
+      // GUARD: If vault locked while typing, stash the entry and prompt for PIN
+      if (!sessionKey) {
+        pendingAssetToSave = newAsset;
+        document.getElementById("addModal").classList.add("hidden");
+        document.getElementById("pinOverlay").classList.remove("hidden");
+        alert("Your session timed out. Please enter your PIN to unlock and save your entry.");
+        return;
+      }
+
+      estateData.push(newAsset);
+      const ok = await saveVault();
+      if (ok) {
+        document.getElementById("addModal").classList.add("hidden");
+        clearModalFields();
+        renderApp();
+      }
+    });
+
+    async function deleteAsset(id) {
+      if (confirm("Are you sure you want to remove this record?")) {
+        estateData = estateData.filter(a => a.id !== id);
+        await saveVault();
+        renderApp();
+      }
+    }
+
+    function clearModalFields() {
+      document.getElementById("fName").value = "";
+      document.getElementById("fIdentifier").value = "";
+      document.getElementById("fValue").value = "";
+      document.getElementById("fNominee").value = "";
+      document.getElementById("fLinkedBank").value = "";
+      document.getElementById("fLocation").value = "";
+      document.getElementById("fInstructions").value = "";
+    }
+
+    /* ==========================================================================
+       BACKUP & RESTORE LOGIC
        ========================================================================== */
     document.getElementById("btnExportVault").addEventListener("click", () => {
       const savedVault = localStorage.getItem("pf_estate_vault");
@@ -484,7 +559,6 @@
       showToast("Encrypted Backup Downloaded");
     });
 
-    // Open unified restore modal
     function openRestoreModal() {
       document.getElementById("restoreModal").classList.remove("hidden");
       document.getElementById("restoreTextInput").value = "";
@@ -494,7 +568,6 @@
     document.getElementById("btnOpenRestoreModal").addEventListener("click", openRestoreModal);
     document.getElementById("btnHeaderRestore").addEventListener("click", openRestoreModal);
 
-    // Unified restore processor with clean byte normalization
     document.getElementById("btnExecuteRestore").addEventListener("click", async () => {
       const pin = document.getElementById("restorePinInput").value.trim();
       if (!pin) return alert("Please enter the Master PIN for this backup.");
@@ -512,7 +585,7 @@
         };
         reader.readAsText(file, "UTF-8");
       } else {
-        alert("Please select a .vault file or paste the backup text into the box.");
+        alert("Please select a .vault file or paste the backup text.");
       }
     });
 
@@ -522,15 +595,13 @@
         try {
           pkg = JSON.parse(rawText.trim());
         } catch (e) {
-          return alert("Invalid file structure. The selected file is not a valid JSON/Vault backup.");
+          return alert("Invalid file structure. Not a valid JSON/Vault backup.");
         }
 
-        // Validate structure safely
         if (!pkg || (pkg.magic !== VAULT_HEADER && pkg.header !== VAULT_HEADER) || !pkg.ciphertext || !pkg.salt) {
           return alert("Invalid file format. This file was not generated by this Family Vault.");
         }
 
-        // Android safe byte conversion
         const saltArray = new Uint8Array(Array.from(pkg.salt).map(x => Number(x)));
         const ivArray = new Uint8Array(Array.from(pkg.iv).map(x => Number(x)));
         const cipherArray = new Uint8Array(Array.from(pkg.ciphertext).map(x => Number(x)));
@@ -541,15 +612,12 @@
         try {
           decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv: ivArray }, key, cipherArray);
         } catch (decryptErr) {
-          return alert("Decryption failed. The Master PIN you entered does not match this backup file.");
+          return alert("Decryption failed. The Master PIN does not match this backup.");
         }
 
         const restoredData = JSON.parse(decoder.decode(decrypted));
-        if (!Array.isArray(restoredData)) {
-          throw new Error("Invalid payload format inside vault.");
-        }
+        if (!Array.isArray(restoredData)) throw new Error("Invalid payload format.");
 
-        // Save successfully to device localStorage
         localStorage.setItem("pf_estate_salt", JSON.stringify(Array.from(saltArray)));
         sessionKey = key;
         estateData = restoredData;
@@ -558,58 +626,15 @@
         document.getElementById("restoreModal").classList.add("hidden");
         document.getElementById("pinOverlay").classList.add("hidden");
         renderApp();
-        alert(`Successfully restored ${estateData.length} accounts/assets onto your device!`);
+        alert(`Successfully restored ${estateData.length} records!`);
       } catch (err) {
-        console.error("Restore error:", err);
         alert("Error restoring backup: " + err.message);
       }
     }
 
     /* ==========================================================================
-       CRUD & SPREADSHEET LOGIC
+       SPREADSHEET IMPORTER
        ========================================================================== */
-    document.getElementById("btnSaveAsset").addEventListener("click", async () => {
-      const name = document.getElementById("fName").value.trim();
-      const val = parseFloat(document.getElementById("fValue").value) || 0;
-      if (!name) return alert("Please specify the Institution or Asset Name.");
-
-      estateData.push({
-        id: `ast_${Date.now()}`,
-        category: document.getElementById("fCategory").value,
-        member: document.getElementById("fMember").value,
-        name: name,
-        identifier: document.getElementById("fIdentifier").value.trim(),
-        value: val,
-        nominee: document.getElementById("fNominee").value.trim() || "Not specified",
-        linkedBank: document.getElementById("fLinkedBank").value.trim(),
-        location: document.getElementById("fLocation").value.trim(),
-        instructions: document.getElementById("fInstructions").value.trim()
-      });
-
-      await saveVault();
-      document.getElementById("addModal").classList.add("hidden");
-      clearModalFields();
-      renderApp();
-    });
-
-    async function deleteAsset(id) {
-      if (confirm("Are you sure you want to remove this record?")) {
-        estateData = estateData.filter(a => a.id !== id);
-        await saveVault();
-        renderApp();
-      }
-    }
-
-    function clearModalFields() {
-      document.getElementById("fName").value = "";
-      document.getElementById("fIdentifier").value = "";
-      document.getElementById("fValue").value = "";
-      document.getElementById("fNominee").value = "";
-      document.getElementById("fLinkedBank").value = "";
-      document.getElementById("fLocation").value = "";
-      document.getElementById("fInstructions").value = "";
-    }
-
     function handleSpreadsheetImport(e) {
       const file = e.target.files[0];
       if (!file) return;
@@ -652,7 +677,7 @@
 
           await saveVault();
           renderApp();
-          alert(`Imported ${count} assets. Encrypted and saved.`);
+          alert(`Imported ${count} assets.`);
         } catch (err) {
           alert("Error parsing file: " + err.message);
         }
